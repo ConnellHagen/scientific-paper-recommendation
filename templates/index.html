@@ -43,7 +43,7 @@ content %}
       <p class="meta muted">{{ paper.categories }}</p>
       <p class="snippet">{{ paper.abstract_snippet }}</p>
       <div class="card-footer">
-        <span class="score">Match: {{ paper.score }}</span>
+        <!-- <span class="score">Match: {{ paper.score }}</span> -->
         <a
           class="btn ghost"
           href="{{ url_for('paper_detail', paper_id=paper.id) }}"

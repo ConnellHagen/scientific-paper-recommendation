@@ -35,7 +35,7 @@ content %} {% if error %}
       <p class="meta muted">{{ paper.categories }}</p>
       <p class="snippet">{{ paper.abstract_snippet }}</p>
       <div class="card-footer">
-        <span class="score">Shared keywords: {{ paper.score }}</span>
+        <span class="score">{{ paper.score_label or "Similarity" }}: {{ paper.score_display or paper.score }}</span>
         <a
           class="btn ghost"
           href="{{ url_for('paper_detail', paper_id=paper.id) }}"
