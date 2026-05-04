@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{% block title %}Paper Finder{% endblock %}</title>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='styles.css') }}"
+    />
+  </head>
+  <body>
+    <div class="backdrop">
+      <div class="orb orb-one"></div>
+      <div class="orb orb-two"></div>
+      <div class="orb orb-three"></div>
+    </div>
+    <header class="site-header">
+      <div class="brand-block">
+        <a class="brand" href="{{ url_for('index') }}">Paper Finder</a>
+      </div>
+    </header>
+    <main class="page">{% block content %}{% endblock %}</main>
+  </body>
+</html>

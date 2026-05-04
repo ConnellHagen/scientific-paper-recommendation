@@ -1,0 +1,52 @@
+{% extends "base.html" %} {% block title %}Paper Details{% endblock %} {% block
+content %} {% if error %}
+<div class="alert error">{{ error }}</div>
+{% endif %} {% if paper %}
+<section class="paper-hero">
+  <a class="back-link" href="{{ url_for('index') }}">Back to search</a>
+  <h1>{{ paper.title }}</h1>
+  <p class="meta">{{ paper.authors }}</p>
+  <div class="paper-meta">
+    <span>ID: {{ paper.id }}</span>
+    {% if paper.update_date %}
+    <span>Updated: {{ paper.update_date }}</span>
+    {% endif %} {% if paper.categories %}
+    <span>Categories: {{ paper.categories }}</span>
+    {% endif %}
+  </div>
+</section>
+
+<section class="paper-abstract">
+  <h2>Abstract</h2>
+  <p class="abstract-text">{{ paper.abstract }}</p>
+</section>
+
+<section class="results">
+  <div class="section-header">
+    <h2>You may like</h2>
+    <p>Top {{ recommendations | length }} similar papers</p>
+  </div>
+  {% if recommendations %}
+  <div class="results-grid">
+    {% for paper in recommendations %}
+    <article class="result-card">
+      <h3>{{ paper.title }}</h3>
+      <p class="meta">{{ paper.authors }}</p>
+      <p class="meta muted">{{ paper.categories }}</p>
+      <p class="snippet">{{ paper.abstract_snippet }}</p>
+      <div class="card-footer">
+        <span class="score">Shared keywords: {{ paper.score }}</span>
+        <a
+          class="btn ghost"
+          href="{{ url_for('paper_detail', paper_id=paper.id) }}"
+          >View paper</a
+        >
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="empty-state">No similar papers found in the scanned range.</p>
+  {% endif %}
+</section>
+{% endif %} {% endblock %}

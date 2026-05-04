@@ -1,0 +1,60 @@
+{% extends "base.html" %} {% block title %}Paper Finder{% endblock %} {% block
+content %}
+<section class="hero">
+  <div class="hero-text">
+    <h1>Find papers fast</h1>
+    <p>
+      Type a topic or phrase. Matches will be found with keyword overlap
+    </p>
+  </div>
+  <form class="search-form" method="get" action="{{ url_for('index') }}">
+    <label for="query" class="field-label">Search query</label>
+    <div class="field-row">
+      <input
+        id="query"
+        name="q"
+        type="text"
+        placeholder="Examples: diphoton production, graph sparsity, or lattice paths"
+        value="{{ query }}"
+        required
+      />
+      <button class="btn primary" type="submit">Search</button>
+    </div>
+  </form>
+</section>
+
+{% if error %}
+<div class="alert error">{{ error }}</div>
+{% endif %} {% if query %}
+<section class="results">
+  <div class="section-header">
+    <h2>Results for "{{ query }}"</h2>
+    <p>
+      {{ results | length }} match{{ "es" if results | length != 1 else "" }}
+      found
+    </p>
+  </div>
+  {% if results %}
+  <div class="results-grid">
+    {% for paper in results %}
+    <article class="result-card">
+      <h3>{{ paper.title }}</h3>
+      <p class="meta">{{ paper.authors }}</p>
+      <p class="meta muted">{{ paper.categories }}</p>
+      <p class="snippet">{{ paper.abstract_snippet }}</p>
+      <div class="card-footer">
+        <span class="score">Match: {{ paper.score }}</span>
+        <a
+          class="btn ghost"
+          href="{{ url_for('paper_detail', paper_id=paper.id) }}"
+          >View paper</a
+        >
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="empty-state">No matches yet. Try a different phrase.</p>
+  {% endif %}
+</section>
+{% endif %} {% endblock %}
