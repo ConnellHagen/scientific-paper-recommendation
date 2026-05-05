@@ -262,6 +262,19 @@ body {
   gap: 18px;
 }
 
+.recs-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.recs-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
 .result-card,
 .tip-card {
   background: #fffdf9;

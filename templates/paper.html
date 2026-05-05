@@ -24,7 +24,12 @@ content %} {% if error %}
 <section class="results">
   <div class="section-header">
     <h2>You may like</h2>
-    <p>Top {{ recommendations | length }} similar papers</p>
+    <p data-recs-status>
+      {% if recommendations %} Top {{ recommendations | length }} similar papers
+      {% elif recs_available %} Loading recommendations... {% else %} {{
+      recs_unavailable_reason or "Recommendations are not available." }} {%
+      endif %}
+    </p>
   </div>
   {% if recommendations %}
   <div class="results-grid">
@@ -35,7 +40,6 @@ content %} {% if error %}
       <p class="meta muted">{{ paper.categories }}</p>
       <p class="snippet">{{ paper.abstract_snippet }}</p>
       <div class="card-footer">
-        <span class="score">{{ paper.score_label or "Similarity" }}: {{ paper.score_display or paper.score }}</span>
         <a
           class="btn ghost"
           href="{{ url_for('paper_detail', paper_id=paper.id) }}"
@@ -45,8 +49,125 @@ content %} {% if error %}
     </article>
     {% endfor %}
   </div>
+  {% elif recs_available %}
+  <div
+    class="recs-shell"
+    data-recs-section
+    data-recs-endpoint="{{ url_for('paper_recommendations', paper_id=paper.id) }}"
+    data-paper-base="{{ url_for('paper_detail', paper_id='__ID__') }}"
+  >
+    <div class="results-grid" data-recs-list></div>
+  </div>
   {% else %}
-  <p class="empty-state">No similar papers found in the scanned range.</p>
+  <p class="empty-state">
+    {{ recs_unavailable_reason or "Recommendations are not available." }}
+  </p>
   {% endif %}
 </section>
+{% endif %} {% endblock %} {% block scripts %} {% if recs_available %}
+<script>
+  (function () {
+    var section = document.querySelector("[data-recs-section]");
+    if (!section) {
+      return;
+    }
+    var status = document.querySelector("[data-recs-status]");
+    var grid = section.querySelector("[data-recs-list]");
+    var endpoint = section.getAttribute("data-recs-endpoint");
+    var paperBase = section.getAttribute("data-paper-base");
+    if (!status || !grid || !endpoint) {
+      return;
+    }
+
+    function setStatus(message) {
+      status.textContent = message;
+    }
+
+    function buildCard(rec) {
+      var card = document.createElement("article");
+      card.className = "result-card";
+
+      var title = document.createElement("h3");
+      title.textContent = rec.title || "Untitled";
+      card.appendChild(title);
+
+      if (rec.authors) {
+        var authors = document.createElement("p");
+        authors.className = "meta";
+        authors.textContent = rec.authors;
+        card.appendChild(authors);
+      }
+
+      if (rec.categories) {
+        var categories = document.createElement("p");
+        categories.className = "meta muted";
+        categories.textContent = rec.categories;
+        card.appendChild(categories);
+      }
+
+      if (rec.abstract_snippet) {
+        var snippet = document.createElement("p");
+        snippet.className = "snippet";
+        snippet.textContent = rec.abstract_snippet;
+        card.appendChild(snippet);
+      }
+
+      var footer = document.createElement("div");
+      footer.className = "card-footer";
+
+      var link = document.createElement("a");
+      link.className = "btn ghost";
+      link.textContent = "View paper";
+      if (paperBase && rec.id) {
+        link.setAttribute(
+          "href",
+          paperBase.replace("__ID__", encodeURIComponent(rec.id)),
+        );
+      }
+      footer.appendChild(link);
+
+      card.appendChild(footer);
+      return card;
+    }
+
+    setStatus("Loading recommendations...");
+    grid.innerHTML = "";
+
+    fetch(endpoint, { headers: { Accept: "application/json" } })
+      .then(function (response) {
+        return response
+          .json()
+          .catch(function () {
+            return {};
+          })
+          .then(function (payload) {
+            if (!response.ok) {
+              var message = payload.error || "Failed to load recommendations.";
+              throw new Error(message);
+            }
+            return payload;
+          });
+      })
+      .then(function (payload) {
+        var list = payload.recommendations || [];
+        if (payload.error) {
+          setStatus(payload.error);
+        } else if (!list.length) {
+          setStatus("No similar papers found.");
+        } else {
+          setStatus("Recommendations loaded.");
+        }
+        list.forEach(function (rec) {
+          grid.appendChild(buildCard(rec));
+        });
+      })
+      .catch(function (error) {
+        setStatus(
+          error && error.message
+            ? error.message
+            : "Failed to load recommendations.",
+        );
+      });
+  })();
+</script>
 {% endif %} {% endblock %}
