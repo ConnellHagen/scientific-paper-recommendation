@@ -14,6 +14,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_PATH = os.path.join(BASE_DIR, "arxiv-metadata-oai-snapshot-002.json")
 EMBEDDINGS_PATH = os.path.join(BASE_DIR, "hep_ph_train_embeddings.json")
 PAPER_DB_PATH = os.path.join(BASE_DIR, "papers.sqlite")
+RECOMMENDER_MAX_EMBEDDINGS = 0
 MAX_SCAN_LINES = 20000
 MAX_SEARCH_RESULTS = 20
 MAX_RECOMMENDATIONS = 5
@@ -21,35 +22,9 @@ MAX_RECOMMEND_CANDIDATES = 50
 EMBEDDING_DIM = 768
 
 WORD_RE = re.compile(r"[a-z0-9]+")
-STOPWORDS = {
-    "a",
-    "an",
-    "and",
-    "are",
-    "as",
-    "at",
-    "be",
-    "but",
-    "by",
-    "for",
-    "from",
-    "has",
-    "have",
-    "in",
-    "is",
-    "it",
-    "its",
-    "of",
-    "on",
-    "or",
-    "our",
-    "that",
-    "the",
-    "their",
-    "this",
-    "to",
-    "we",
-    "with",
+STOPWORDS = { 
+    "a", "an", "and", "are", "as", "at", "be", "but", "by", "for", "from", "has", "have", "in", "is", "it", 
+    "its", "of", "on", "or", "our", "that", "the", "their", "this", "to", "we", "with",
 }
 
 
@@ -87,13 +62,8 @@ embedding_id_cache = {
 }
 
 
-def auto_build_cache_enabled():
-    value = os.getenv("AUTO_BUILD_CACHE", "1").strip().lower()
-    return value not in {"0", "false", "no", "off"}
-
-
 def embeddings_cache_path():
-    max_embeddings = recommender_max_embeddings()
+    max_embeddings = RECOMMENDER_MAX_EMBEDDINGS
     if max_embeddings:
         return os.path.join(
             BASE_DIR,
@@ -104,7 +74,7 @@ def embeddings_cache_path():
 
 def embeddings_source_available():
     return os.path.exists(EMBEDDINGS_PATH) or os.path.exists(embeddings_cache_path())
-
+ 
 
 def paper_db_available():
     return os.path.exists(PAPER_DB_PATH)
@@ -190,8 +160,6 @@ def build_paper_db(force=False):
 def ensure_paper_db():
     if paper_db_available():
         return True
-    if not auto_build_cache_enabled():
-        return False
     ok, _ = build_paper_db()
     return ok
 
@@ -213,7 +181,7 @@ def build_embeddings_cache(force=False):
 
     ids = []
     embeddings = []
-    max_embeddings = recommender_max_embeddings()
+    max_embeddings = RECOMMENDER_MAX_EMBEDDINGS
     with open(EMBEDDINGS_PATH, "r", encoding="utf-8", errors="replace") as handle:
         for line in handle:
             line = line.strip()
@@ -244,8 +212,7 @@ def build_embeddings_cache(force=False):
 
     np.savez(cache_path, ids=np.asarray(ids), vectors=vectors)
 
-    if paper_db_available() or auto_build_cache_enabled():
-        sync_embedded_ids(set(ids))
+    sync_embedded_ids(set(ids))
 
     recommender_assets.update(
         {
@@ -266,8 +233,6 @@ def ensure_embeddings_cache():
     cache_path = embeddings_cache_path()
     if os.path.exists(cache_path):
         return True, ""
-    if not auto_build_cache_enabled():
-        return False, "Embeddings cache missing. Run python app.py --build-cache."
     return build_embeddings_cache()
 
 
@@ -292,10 +257,6 @@ def load_embedding_ids():
     if embedding_id_cache["ready"] or embedding_id_cache["error"]:
         return embedding_id_cache
 
-    if not recommender_enabled():
-        embedding_id_cache["error"] = "Recommendations are disabled."
-        return embedding_id_cache
-
     cache_path = embeddings_cache_path()
     if not os.path.exists(cache_path):
         ok, error = ensure_embeddings_cache()
@@ -312,7 +273,7 @@ def load_embedding_ids():
     try:
         with np.load(cache_path, allow_pickle=True) as payload:
             ids = payload["ids"]
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         embedding_id_cache["error"] = f"Failed to load embeddings ids: {exc}"
         return embedding_id_cache
 
@@ -443,42 +404,18 @@ def dataset_available():
     return os.path.exists(DATA_PATH)
 
 
-def recommender_enabled():
-    value = os.getenv("RECOMMENDER_ENABLED", "1").strip().lower()
-    return value not in {"0", "false", "no", "off"}
-
-
-def recommender_max_embeddings():
-    raw = os.getenv("RECOMMENDER_MAX_EMBEDDINGS", "").strip()
-    if not raw:
-        return 0
-    try:
-        limit = int(raw)
-    except ValueError:
-        return 0
-    return max(limit, 0)
-
-
 def recommender_available():
-    if not recommender_enabled():
-        return False
     cache_path = embeddings_cache_path()
     if os.path.exists(cache_path):
         return True
-    if auto_build_cache_enabled():
-        return os.path.exists(EMBEDDINGS_PATH)
-    return False
+    return os.path.exists(EMBEDDINGS_PATH)
 
 
 def recommender_unavailable_reason():
-    if not recommender_enabled():
-        return "Recommendations are disabled to keep the app lightweight."
     cache_path = embeddings_cache_path()
     if os.path.exists(cache_path):
         return ""
     if os.path.exists(EMBEDDINGS_PATH):
-        if not auto_build_cache_enabled():
-            return "Embeddings cache missing. Run python app.py --build-cache."
         return ""
     if not embeddings_source_available():
         return "Embeddings file not found."
@@ -523,7 +460,7 @@ def truncate(text, limit=280):
     return cleaned[:limit].rstrip() + "..."
 
 
-def paper_summary(paper, _score=None, _score_label=None):
+def paper_summary(paper):
     return {
         "id": paper.get("id", ""),
         "title": paper.get("title", "Untitled"),
@@ -604,10 +541,6 @@ def load_recommender_assets():
     if recommender_assets["ready"] or recommender_assets["error"]:
         return recommender_assets
 
-    if not recommender_enabled():
-        recommender_assets["error"] = "Recommendations are disabled."
-        return recommender_assets
-
     try:
         import numpy as np
     except ImportError as exc:
@@ -624,7 +557,7 @@ def load_recommender_assets():
         with np.load(cache_path, allow_pickle=True) as payload:
             ids = payload["ids"]
             vectors = payload["vectors"]
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         recommender_assets["error"] = f"Failed to load embeddings cache: {exc}"
         return recommender_assets
 
@@ -706,10 +639,7 @@ def recommend_similar_model(paper, assets=None):
                 "abstract": "",
             }
         recommendations.append(
-            paper_summary(
-                candidate_paper,
-                float(scores[candidate_index]),
-            )
+            paper_summary(candidate_paper)
         )
         if len(recommendations) >= MAX_RECOMMENDATIONS:
             break
